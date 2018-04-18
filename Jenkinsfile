@@ -1,6 +1,6 @@
         def sonarQubeUrl="http://sonarqube:9000"
         def githubOrganization="sarahBuisson"
-        def githubRepository="pitest-xebicon-demo"
+        def githubRepository="devoxx-mutation-testing"
 
 
 void setBuildStatus(String url, String context, String message, String state, String backref){
@@ -96,7 +96,7 @@ pipeline {
         def jenkinsJobUrl="http://localhost:8080/job/$githubOrganization/job/$githubRepository/view/change-requests/job/${env.BRANCH_NAME}"
         http://localhost:8080/job/sarahbuisson/job/jenkinsCraft/view/change-requests/job/PR-18/HTML_site/pit-reports/index.html
 
-        def githubProject="sarahBuisson/pitest-xebicon-demo"
+        def githubProject="sarahBuisson/devoxx-mutation-testing"
         def groupId="com.github.sarahbuisson"
         def artifactId="pitest-xebicon-demo"
 
