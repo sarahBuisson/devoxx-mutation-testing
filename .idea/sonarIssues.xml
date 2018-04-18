@@ -98,6 +98,11 @@
             <set />
           </value>
         </entry>
+        <entry key="$PROJECT_DIR$/fizzbuzz/src/test/java/fr/perso/pitest/xebicon/demo/fizzbuzz/FizzBuzzTest.java">
+          <value>
+            <set />
+          </value>
+        </entry>
         <entry key="$PROJECT_DIR$/fizzbuzz/target/pit-reports/fr.perso.pitest.xebicon.demo.fizzbuzz/FizzBuzz.java.html">
           <value>
             <set />
