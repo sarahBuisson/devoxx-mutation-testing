@@ -15,19 +15,10 @@ public class FizzBuzz {
         if (message.toString().isEmpty()) {
             appendMessage("" + number);
         }
+
         if (false){
 
-            appendMessage("code not covered by standard nor mutationd");
-
-        }
-        if (false){
-
-            appendMessage("code still not covered by standard nor mutation");
-
-        }
-        if (false){
-
-            appendMessage("code still not covered by standard nor mutation");
+            appendMessage("code not covered by standard nor mutations");
 
         }
         return message;
