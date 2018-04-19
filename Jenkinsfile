@@ -1,6 +1,6 @@
         def sonarQubeUrl="http://sonarqube:9000"
         def githubOrganization="sarahBuisson"
-        def githubRepository="pitest-xebicon-demo"
+        def githubRepository="devoxx-mutation-testing"
 
 
 void setBuildStatus(String url, String context, String message, String state, String backref){
@@ -69,35 +69,57 @@ def getFromPom(pom, balise) {
 }
 
 
-node {
-    stage('build') {
+pipeline {
+    agent any
 
+          stages {
+    stage('build') {
+             steps {
+       echo "build"
         checkout scm
         sh "mvn clean install -B"
-    }
-    stage('metrics') {
-
-
+             }
+    }}
+      
+                    post { 
+        always { 
+    
+        sh "git show-ref"
+                     
+  script {
         withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'sbuisson-sonar', usernameVariable: 'SONAR_LOGIN', passwordVariable: 'SONAR_PASSWORD']]) {
         withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'sbuisson-ci', usernameVariable: 'CI_LOGIN', passwordVariable: 'CI_PASSWORD']]) {
 
         def databaseSonarParam = " -Dsonar.jdbc.username=${env.CI_LOGIN} -Dsonar.jdbc.password=${env.CI_PASSWORD} -Dsonar.jdbc.url=jdbc:postgresql://postgres:5432/ci "
-        def sonarParam = " -Dsonar.host.url=$sonarQubeUrl -Dsonar.login=${env.SONAR_LOGIN} -Dsonar.password=${env.SONAR_LOGIN} "
+        def sonarParam = " -Dsonar.host.url=$sonarQubeUrl -Dsonar.login=${env.SONAR_LOGIN} -Dsonar.password=${env.SONAR_PASSWORD} "
         //TODO : use credential for password sonar
         def jenkinsJobUrl="http://localhost:8080/job/$githubOrganization/job/$githubRepository/view/change-requests/job/${env.BRANCH_NAME}"
         http://localhost:8080/job/sarahbuisson/job/jenkinsCraft/view/change-requests/job/PR-18/HTML_site/pit-reports/index.html
 
-        def githubProject="sarahBuisson/pitest-xebicon-demo"
+        def githubProject="sarahBuisson/devoxx-mutation-testing"
         def groupId="com.github.sarahbuisson"
         def artifactId="pitest-xebicon-demo"
 
+        echo "for the branch  ${env.BRANCH_NAME}"
         if ("master" == env.BRANCH_NAME) {
             if (isUp(sonarQubeUrl)){
 
                 echo("sonar master")
-                sh "mvn sonar:sonar -Dsonar.analysis.mode=issues $sonarParam $databaseSonarParam  -B "
+                sh "mvn sonar:sonar $sonarParam  -B "
 
             }
+            sh "mvn pitest:mutationCoverage -Pquality -B"
+            publishHTML([allowMissing: true, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'target/pit-reports', reportFiles: '*', reportName: 'pitest site', reportTitles: 'pitest'])
+
+            try{
+                sh "mvn universal-module-aggregator:aggregate -Pquality -B -U"
+            }catch ( e){
+                echo e.toString();
+            }
+            //build site ( for documentation)
+            sh "mvn site -Pquality -U site:stage"
+            publishHTML([allowMissing: true, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'target/staging', reportFiles: '*', reportName: 'HTML site', reportTitles: 'site'])
+
             sh "mvn pitest:mutationCoverage -Pquality -B"
             publishHTML([allowMissing: true, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'target/pit-reports', reportFiles: '*', reportName: 'pitest site', reportTitles: 'pitest'])
 
@@ -116,7 +138,7 @@ node {
             if(isUp(sonarQubeUrl)){
 
                 echo("sonar branch ${env.BRANCH_NAME}")
-                sh "mvn sonar:sonar -Dsonar.analysis.mode=issues $sonarParam $databaseSonarParam  -B "
+                sh "mvn sonar:sonar $sonarParam $databaseSonarParam  -B "
 
             }
             sh "mvn pitest:mutationCoverage -Pquality -B"
@@ -133,7 +155,7 @@ node {
 
 
         } else {
-
+            echo "for a PR"
 
             def githubUrl = "${env.CHANGE_URL}"
 
@@ -143,19 +165,20 @@ node {
             resume+="<a href='${jenkinsJobUrl}/${env.BUILD_NUMBER}/console'>logs</a><br/>"
 
             withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'sbuisson-git', usernameVariable: 'GH_LOGIN', passwordVariable: 'GH_PASSWORD']]) {
-                withCredentials([[$class: 'StringBinding', credentialsId: ' git-token', variable: 'OATH']]) {
+                withCredentials([[$class: 'StringBinding', credentialsId: 'git-token-sarahbuisson', variable: 'OATH']]) {
                     def githubSonarParam="-Dsonar.github.pullRequest=${env.CHANGE_ID}\
                                                         -Dsonar.github.repository=$githubProject \
                                                         -Dsonar.github.login=${env.GH_LOGIN} \
-                                                        -Dsonar.github.oauth=${env.GH_PASSWORD}  \
+                                                        -Dsonar.github.oauth=${env.OATH}  \
                                                         -Dsonar.verbose=true "
 
 
                     def branchName = getBranch(githubOrganization+"/"+githubRepository, 'sbuisson-git', env.CHANGE_ID);
 
+
                     //sonar
                     if(isUp(sonarQubeUrl)){
-                        sh "mvn sonar:sonar -Dsonar.analysis.mode=preview -Dsonar.issuesReport.html.enable=true -Dsonar.issuesReport.json.enable=true $sonarParam $databaseSonarParam $githubSonarParam -B"
+                        sh "mvn sonar:sonar -Dsonar.analysis.mode=preview -Dsonar.issuesReport.html.enable=true -Dsonar.issuesReport.json.enable=true $sonarParam $githubSonarParam -B"
 
                         echo "metrics sonar"
 
@@ -166,7 +189,8 @@ node {
 
 
                     // pitest
-                    sh "mvn pitest:mutationCoverage -Pquality -DoriginReference=$branchName -B"
+                      echo "metrics pitest"
+                    sh "mvn pitest:mutationCoverage -Ppull-request -DoriginReference=refs/remotes/origin/${env.BRANCH_NAME} -DdestinationReference=refs/remotes/origin/master -B -X"
                     publishHTML([allowMissing: true, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'target/pit-reports', reportFiles: '*', reportName: 'pitest site', reportTitles: 'pitest'])
                     resume+="rapport pitest : <a href='${jenkinsJobUrl}//HTML_site//pit-reports/index.html'>here</a> <br/>"
 
@@ -190,8 +214,8 @@ node {
                 }
             }
         }
-        }}
-
+        }}}
+    }
     }
 
 }
